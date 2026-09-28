@@ -1,44 +1,56 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
+import { encodeSession } from '@/lib/auth'
 
-export async function GET() {
-  const cart = await prisma.cart.findUnique({
-    where: { userId: 'guest-user' },
-    include: { items: { include: { product: true } } },
-  })
-
-  return NextResponse.json({
-    items: cart?.items ?? [],
-    count: cart?.items.reduce((sum, item) => sum + item.quantity, 0) ?? 0,
-  })
-}
+const schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+})
 
 export async function POST(request: Request) {
-  const body = await request.json()
-  const productId = body.productId as string
-  const quantity = Number(body.quantity ?? 1)
+  try {
+    const body = await request.json()
+    const parsed = schema.safeParse(body)
 
-  if (!productId) return NextResponse.json({ error: 'Product is required' }, { status: 400 })
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
-    return NextResponse.json({ error: 'Invalid quantity' }, { status: 400 })
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 400 })
+    }
+
+    const { email, password } = parsed.data
+    const user = await prisma.user.findUnique({ where: { email } })
+
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    }
+
+    const valid = await bcrypt.compare(password, user.password)
+    if (!valid) {
+      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    }
+
+    const response = NextResponse.json({
+      success: true,
+      user: { id: user.id, email: user.email, name: user.name, role: user.role }
+    })
+
+    response.cookies.set('coffea_session', encodeSession({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    }), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    })
+
+    return response
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json({ error: 'Unable to log in' }, { status: 500 })
   }
-
-  const product = await prisma.product.findUnique({ where: { id: productId } })
-  if (!product || !product.isAvailable) {
-    return NextResponse.json({ error: 'Product is unavailable' }, { status: 400 })
-  }
-
-  const cart = await prisma.cart.upsert({
-    where: { userId: 'guest-user' },
-    create: { userId: 'guest-user' },
-    update: {},
-  })
-
-  const item = await prisma.cartItem.upsert({
-    where: { cartId_productId: { cartId: cart.id, productId } },
-    update: { quantity: { increment: quantity } },
-    create: { cartId: cart.id, productId, quantity },
-  })
-
-  return NextResponse.json({ success: true, item })
 }
