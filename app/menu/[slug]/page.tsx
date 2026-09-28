@@ -1,24 +1,29 @@
-import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
-import { ArrowLeft, Clock3 } from 'lucide-react'
-import { getProductPrice } from '@/lib/utils'
 
-export default async function ProductDetailPage({ params }: { params: { slug: string } }) {
+export default async function MenuDetailPage({ params }: { params: { slug: string } }) {
   const product = await prisma.product.findUnique({
     where: { slug: params.slug },
     include: { category: true, images: true },
   })
 
-  if (!product) notFound()
+  if (!product) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold text-oak">Product not found</h1>
+        <Link href="/menu" className="mt-4 inline-flex rounded-full bg-coffee-700 px-5 py-2 font-medium text-white">
+          Back to menu
+        </Link>
+      </div>
+    )
+  }
 
-  const price = getProductPrice(product)
+  const price = product.discountPrice ?? product.price
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:px-8">
       <Link href="/menu" className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-coffee-700">
-        <ArrowLeft className="h-4 w-4" />
-        Back to menu
+        ← Back to menu
       </Link>
 
       <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr]">
@@ -37,18 +42,13 @@ export default async function ProductDetailPage({ params }: { params: { slug: st
           </div>
 
           <div className="flex items-center gap-3 text-lg font-semibold text-oak">
-            <span>{new Intl.NumberFormat('en-ET', { style: 'currency', currency: 'ETB' }).format(price)}</span>
+            <span>ETB {price.toFixed(2)}</span>
             {product.discountPrice && product.discountPrice < product.price ? (
-              <span className="text-sm text-stone-500 line-through">{new Intl.NumberFormat('en-ET', { style: 'currency', currency: 'ETB' }).format(product.price)}</span>
+              <span className="text-sm text-stone-500 line-through">ETB {product.price.toFixed(2)}</span>
             ) : null}
           </div>
 
           <p className="text-stone-700">{product.description}</p>
-
-          <div className="flex items-center gap-2 rounded-full border border-coffee-200 bg-coffee-50 px-4 py-2 text-sm text-coffee-700">
-            <Clock3 className="h-4 w-4" />
-            Prep time: {product.preparationTime} min
-          </div>
 
           <form action="/api/cart" method="POST" className="flex gap-3">
             <input type="hidden" name="productId" value={product.id} />
