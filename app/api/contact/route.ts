@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 
 const schema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
-  password: z.string().min(8),
-  phone: z.string().optional(),
+  phone: z.string().min(7).optional(),
+  subject: z.string().min(5),
+  message: z.string().min(10),
 })
 
 export async function POST(request: Request) {
@@ -16,23 +16,18 @@ export async function POST(request: Request) {
     const parsed = schema.safeParse(body)
 
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid registration data' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid contact form data' }, { status: 400 })
     }
 
-    const { name, email, password, phone } = parsed.data
-    const existing = await prisma.user.findUnique({ where: { email } })
-    if (existing) {
-      return NextResponse.json({ error: 'User already exists' }, { status: 409 })
-    }
+    const { name, email, phone, subject, message } = parsed.data
 
-    const passwordHash = await bcrypt.hash(password, 12)
-    const user = await prisma.user.create({
-      data: { name, email, password: passwordHash, phone, role: 'CUSTOMER' },
+    const contact = await prisma.contactMessage.create({
+      data: { name, email, phone, subject, message },
     })
 
-    return NextResponse.json({ success: true, user: { id: user.id, name: user.name, email: user.email } })
+    return NextResponse.json({ success: true, contact })
   } catch (error) {
     console.error(error)
-    return NextResponse.json({ error: 'Unable to create account' }, { status: 500 })
+    return NextResponse.json({ error: 'Unable to send message' }, { status: 500 })
   }
 }

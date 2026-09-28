@@ -15,23 +15,18 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     const formData = new FormData(e.currentTarget)
-    const name = formData.get('name')
-    const email = formData.get('email')
-    const password = formData.get('password')
-    const confirmPassword = formData.get('confirmPassword')
-    const phone = formData.get('phone')
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      setIsLoading(false)
-      return
+    const body = {
+      name: formData.get('name'),
+      email: formData.get('email'),
+      password: formData.get('password'),
+      phone: formData.get('phone'),
     }
 
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, phone }),
+        body: JSON.stringify(body),
       })
 
       if (!res.ok) {
@@ -54,7 +49,7 @@ export default function RegisterPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-oak">Create account</h1>
-          <p className="mt-2 text-stone-600">Join Coffea for faster checkout and order tracking</p>
+          <p className="mt-2 text-stone-600">Join Coffea to track orders and manage preferences</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -93,16 +88,7 @@ export default function RegisterPage() {
               minLength={8}
               className="mt-2 w-full rounded-lg border border-stone-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-coffee-700"
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-oak">Confirm password</label>
-            <input
-              type="password"
-              name="confirmPassword"
-              required
-              minLength={8}
-              className="mt-2 w-full rounded-lg border border-stone-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-coffee-700"
-            />
+            <p className="mt-1 text-xs text-stone-500">Minimum 8 characters</p>
           </div>
           {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
           <button
