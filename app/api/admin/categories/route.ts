@@ -6,12 +6,8 @@ import { z } from 'zod'
 const schema = z.object({
   name: z.string().min(2),
   slug: z.string().min(2),
-  description: z.string().min(5),
-  price: z.number().positive(),
-  discountPrice: z.number().positive().optional(),
-  categoryId: z.string(),
-  mainImage: z.string().optional(),
-  isAvailable: z.boolean().default(true),
+  description: z.string().optional(),
+  image: z.string().optional(),
 })
 
 export async function POST(request: Request) {
@@ -28,26 +24,26 @@ export async function POST(request: Request) {
     const parsed = schema.safeParse(body)
 
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid product data' }, { status: 400 })
+      return NextResponse.json({ error: 'Invalid category data' }, { status: 400 })
     }
 
-    const product = await prisma.product.create({ data: parsed.data })
-    return NextResponse.json({ product }, { status: 201 })
+    const category = await prisma.category.create({ data: parsed.data })
+    return NextResponse.json({ category }, { status: 201 })
   } catch (error) {
     console.error(error)
-    return NextResponse.json({ error: 'Failed to create product' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to create category' }, { status: 500 })
   }
 }
 
 export async function GET() {
   try {
-    const products = await prisma.product.findMany({
-      include: { category: true },
+    const categories = await prisma.category.findMany({
+      include: { _count: { select: { products: true } } },
       orderBy: { createdAt: 'desc' },
     })
-    return NextResponse.json({ products })
+    return NextResponse.json({ categories })
   } catch (error) {
     console.error(error)
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch categories' }, { status: 500 })
   }
 }

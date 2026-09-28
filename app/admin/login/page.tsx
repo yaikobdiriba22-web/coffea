@@ -1,71 +1,87 @@
 'use client'
 
+import { FormEvent, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { FormEvent, useState } from 'react'
 
 export default function AdminLoginPage() {
   const router = useRouter()
-  const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setIsLoading(true)
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setError('')
+    setIsLoading(true)
 
-    const form = new FormData(event.currentTarget)
-    const body = {
-      email: form.get('email'),
-      password: form.get('password'),
-    }
+    const formData = new FormData(e.currentTarget)
+    const email = formData.get('email')
+    const password = formData.get('password')
 
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
 
-    const result = await response.json()
+      if (!res.ok) {
+        const data = await res.json()
+        setError(data.error || 'Login failed')
+        return
+      }
 
-    if (!response.ok) {
-      setError(result.error || 'Failed to log in')
+      const data = await res.json()
+      if (data.user.role !== 'ADMIN') {
+        setError('Admin access required')
+        return
+      }
+
+      router.push('/admin/dashboard')
+    } catch (err) {
+      setError('An error occurred. Please try again.')
+      console.error(err)
+    } finally {
       setIsLoading(false)
-      return
     }
-
-    if (result.user?.role !== 'ADMIN') {
-      setError('This account is not authorized for admin access.')
-      setIsLoading(false)
-      return
-    }
-
-    router.push('/admin')
-    setIsLoading(false)
   }
 
   return (
-    <div className="mx-auto max-w-md px-4 py-20 sm:px-6 lg:px-8">
-      <div className="rounded-3xl border border-stone-200 bg-white p-8 shadow-sm">
-        <h1 className="text-3xl font-bold text-oak">Admin login</h1>
-        <p className="mt-2 text-stone-600">Sign in to manage menu, orders, and customers.</p>
-        <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+    <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-4 sm:px-6 lg:px-8">
+      <div className="w-full space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold text-oak">Admin Portal</h1>
+          <p className="mt-2 text-stone-600">Log in to manage Coffea</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
           <div>
             <label className="block text-sm font-medium text-oak">Email</label>
-            <input name="email" type="email" required className="mt-2 w-full rounded-lg border border-stone-300 px-4 py-2" />
+            <input
+              type="email"
+              name="email"
+              required
+              className="mt-2 w-full rounded-lg border border-stone-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-coffee-700"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-oak">Password</label>
-            <input name="password" type="password" required className="mt-2 w-full rounded-lg border border-stone-300 px-4 py-2" />
+            <input
+              type="password"
+              name="password"
+              required
+              className="mt-2 w-full rounded-lg border border-stone-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-coffee-700"
+            />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" disabled={isLoading} className="w-full rounded-full bg-coffee-700 px-5 py-3 font-medium text-white">
-            {isLoading ? 'Signing in...' : 'Sign in'}
+          {error && <p className="text-sm text-red-600 font-medium">{error}</p>}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full rounded-lg bg-coffee-700 px-4 py-2 font-medium text-white transition hover:bg-coffee-800 disabled:opacity-50"
+          >
+            {isLoading ? 'Logging in...' : 'Log in'}
           </button>
         </form>
-        <p className="mt-4 text-center text-sm text-stone-600">
-          <Link href="/login" className="font-medium text-coffee-700">Customer login</Link>
-        </p>
       </div>
     </div>
   )

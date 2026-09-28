@@ -12,15 +12,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
     }
 
-    const orders = await prisma.order.findMany({
-      include: { items: true, user: true },
+    const customers = await prisma.user.findMany({
+      where: { role: 'CUSTOMER' },
+      include: { _count: { select: { orders: true } } },
       orderBy: { createdAt: 'desc' },
       take: 100,
     })
 
-    return NextResponse.json({ orders })
+    return NextResponse.json({ customers })
   } catch (error) {
     console.error(error)
-    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to fetch customers' }, { status: 500 })
   }
 }

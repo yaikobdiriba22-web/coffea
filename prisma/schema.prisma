@@ -1,4 +1,4 @@
-// This is your Prisma schema file.
+// Complete Prisma Schema for Coffea Coffee Shop
 
 generator client {
   provider = "prisma-client-js"
@@ -98,32 +98,28 @@ model Product {
   discountPrice   Float?
   categoryId      String
   category        Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  preparationTime Int           @default(5)
-  ingredients     String?
-  isAvailable     Boolean       @default(true)
-  isFeatured      Boolean       @default(false)
-  isPopular       Boolean       @default(false)
   mainImage       String?
   images          ProductImage[]
+  ingredients     String?
+  allergens       String?
+  isAvailable     Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
   cartItems       CartItem[]
   orderItems      OrderItem[]
   reviews         Review[]
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
 
   @@index([categoryId])
-  @@index([isFeatured])
-  @@index([isPopular])
+  @@index([slug])
 }
 
 model ProductImage {
-  id          String   @id @default(cuid())
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  url         String
-  altText     String?
-  displayOrder Int     @default(0)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+  createdAt DateTime @default(now())
 
   @@index([productId])
 }
@@ -143,11 +139,13 @@ model CartItem {
   cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   productId String
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity  Int      @default(1)
+  quantity  Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([cartId, productId])
+  @@index([cartId])
+  @@index([productId])
 }
 
 model Order {
@@ -163,59 +161,46 @@ model Order {
   deliveryNote    String?
   subtotal        Float
   deliveryFee     Float       @default(0)
-  discount        Float       @default(0)
   total           Float
   status          OrderStatus @default(PENDING)
-  paymentMethod   PaymentMethod @default(CASH_PICKUP)
+  paymentMethod   PaymentMethod
   paymentStatus   PaymentStatus @default(PENDING)
   items           OrderItem[]
-  payment         Payment?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
   @@index([userId])
-  @@index([status])
+  @@index([orderNumber])
+  @@index([createdAt])
 }
 
 model OrderItem {
-  id          String   @id @default(cuid())
-  orderId     String
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
-  quantity    Int
-  unitPrice   Float
-  subtotal    Float
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float
+  subtotal  Float
+  createdAt DateTime @default(now())
 
   @@index([orderId])
-}
-
-model Payment {
-  id            String        @id @default(cuid())
-  orderId       String        @unique
-  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  method        PaymentMethod
-  status        PaymentStatus @default(PENDING)
-  transactionId String?
-  amount        Float
-  metadata      String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  @@index([productId])
 }
 
 model Review {
   id        String   @id @default(cuid())
-  productId  String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   rating    Int
   comment   String?
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  @@unique([productId, userId])
+  @@index([userId])
+  @@index([productId])
 }
 
 model ContactMessage {
@@ -225,7 +210,10 @@ model ContactMessage {
   phone     String?
   subject   String
   message   String
-  isRead    Boolean  @default(false)
+  status    String   @default("new")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([createdAt])
 }

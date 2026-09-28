@@ -8,7 +8,7 @@ const checkoutSchema = z.object({
   phone: z.string().min(7),
   orderType: z.enum(['PICKUP', 'DELIVERY']),
   deliveryAddress: z.string().optional(),
-  notes: z.string().optional(),
+  deliveryNote: z.string().optional(),
 })
 
 export async function POST(request: Request) {
@@ -20,11 +20,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid checkout data' }, { status: 400 })
     }
 
-    const { name, email, phone, orderType, deliveryAddress, notes } = parsed.data
+    const { name, email, phone, orderType, deliveryAddress, deliveryNote } = parsed.data
 
-    // Get cart for guest user
+    const cookie = request.headers.get('cookie')
+    const sessionToken = cookie?.split('coffea_session=')[1]?.split(';')[0]
+    let userId = 'guest-user'
+    if (sessionToken) {
+      try {
+        const { decodeSession } = await import('@/lib/auth')
+        const session = decodeSession(sessionToken)
+        if (session) userId = session.id
+      } catch {}
+    }
+
     const cart = await prisma.cart.findUnique({
-      where: { userId: 'guest-user' },
+      where: { userId },
       include: { items: { include: { product: true } } },
     })
 
@@ -32,25 +42,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 })
     }
 
-    // Calculate totals
     const subtotal = cart.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
     const deliveryFee = orderType === 'DELIVERY' ? 50 : 0
     const total = subtotal + deliveryFee
 
-    // Generate order number
     const orderNumber = `ORD-${Date.now()}`
 
-    // Create order (without user association for guest checkout)
     const order = await prisma.order.create({
       data: {
         orderNumber,
-        userId: 'guest-user',
+        userId,
         customerName: name,
         customerEmail: email,
         customerPhone: phone,
         orderType: orderType as any,
         deliveryAddress: orderType === 'DELIVERY' ? deliveryAddress : null,
-        deliveryNote: notes,
+        deliveryNote,
         subtotal,
         deliveryFee,
         total,
@@ -58,7 +65,7 @@ export async function POST(request: Request) {
         paymentMethod: 'CASH_PICKUP',
         paymentStatus: 'PENDING',
         items: {
-          create: cart.items.map(item => ({
+          create: cart.items.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
             unitPrice: item.product.price,
@@ -68,7 +75,6 @@ export async function POST(request: Request) {
       },
     })
 
-    // Clear cart
     await prisma.cartItem.deleteMany({ where: { cartId: cart.id } })
 
     return NextResponse.json({ success: true, order, orderNumber })

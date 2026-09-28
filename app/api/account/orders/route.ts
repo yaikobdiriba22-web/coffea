@@ -8,14 +8,14 @@ export async function GET(request: Request) {
     const sessionToken = cookie?.split('coffea_session=')[1]?.split(';')[0]
     const session = decodeSession(sessionToken)
 
-    if (!session || session.role !== 'ADMIN') {
+    if (!session || session.role !== 'CUSTOMER') {
       return NextResponse.json({ error: 'Not authorized' }, { status: 401 })
     }
 
     const orders = await prisma.order.findMany({
-      include: { items: true, user: true },
+      where: { userId: session.id },
+      include: { items: { include: { product: true } } },
       orderBy: { createdAt: 'desc' },
-      take: 100,
     })
 
     return NextResponse.json({ orders })
